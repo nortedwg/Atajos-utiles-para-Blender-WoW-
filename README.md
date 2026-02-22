@@ -1,1 +1,1 @@
-Descargar archivo y añadir como AddOn de Blender.
+Descargar archivo y añadir el .py como AddOn de Blender.
