@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Funciones Útiles",
     "author": "Norte",
-    "version": (1, 1),
+    "version": (1, 2),
     "blender": (3, 0, 0),
     "location": "Properties > Material",
     "description": "Herramientas rápidas de materiales, UVs y atajos de transformación",
@@ -10,6 +10,7 @@ bl_info = {
 
 import bpy
 import os
+import re
 from math import radians
 from mathutils import Matrix, Vector
 
@@ -154,6 +155,54 @@ class MATERIAL_OT_nombre_por_textura(bpy.types.Operator):
 
 
 # =====================================================
+# OPERADOR 6 – Eliminar .001 .002 etc de materiales
+# =====================================================
+
+class MATERIAL_OT_eliminar_duplicados(bpy.types.Operator):
+    bl_idname = "material.eliminar_duplicados_001"
+    bl_label = "Eliminar los .001 de los materiales"
+    bl_description = "Unifica materiales con sufijos .001/.002/etc y elimina duplicados"
+
+    def execute(self, context):
+
+        pattern = re.compile(r"^(.*)\.(\d+)$")
+        groups = {}
+
+        for mat in bpy.data.materials:
+            match = pattern.match(mat.name)
+            if match:
+                base_name = match.group(1)
+                number = int(match.group(2))
+                groups.setdefault(base_name, []).append((number, mat))
+
+        total_removed = 0
+
+        for base_name, mats in groups.items():
+
+            base_material = bpy.data.materials.get(base_name)
+
+            if base_material is None:
+                mats.sort(key=lambda x: x[0])
+                lowest_number, lowest_mat = mats.pop(0)
+                lowest_mat.name = base_name
+                base_material = lowest_mat
+
+            for number, mat in mats:
+
+                for obj in bpy.data.objects:
+                    if obj.type == 'MESH':
+                        for slot in obj.material_slots:
+                            if slot.material == mat:
+                                slot.material = base_material
+
+                bpy.data.materials.remove(mat, do_unlink=True)
+                total_removed += 1
+
+        self.report({'INFO'}, f"Materiales duplicados eliminados: {total_removed}")
+        return {'FINISHED'}
+
+
+# =====================================================
 # PANEL – ARRIBA DEL TODO
 # =====================================================
 
@@ -174,6 +223,8 @@ class MATERIAL_PT_tools_norte(bpy.types.Panel):
         layout.separator()
         layout.operator("material.quitar_prefijo_mat", icon='SORTALPHA')
         layout.operator("material.nombre_por_textura", icon='FILE_IMAGE')
+        layout.separator()
+        layout.operator("material.eliminar_duplicados_001", icon='TRASH')
 
 
 # =====================================================
@@ -216,6 +267,7 @@ classes = (
     OBJECT_OT_renombrar_uv,
     MATERIAL_OT_quitar_prefijo,
     MATERIAL_OT_nombre_por_textura,
+    MATERIAL_OT_eliminar_duplicados,
     MATERIAL_PT_tools_norte,
     NORTE_OT_rotate_90_z,
 )
